@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F5F7F9;
+  --bg-tertiary: #EEF0F3;
+  --text-primary: #1A1A2E;
+  --text-secondary: #6B7280;
+  --text-tertiary: #9CA3AF;
+  --border-primary: #E5E7EB;
+  --border-tertiary: #E5E7EB;
+  --primary: #0D7C66;
+  --primary-light: #F0FDF4;
+  --danger: #D85A30;
+  --warning: #EF9F27;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-display {
+  font-family: var(--font-syne), system-ui, sans-serif;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-primary);
+  border-radius: 10px;
+}
+
+/* Inline edit input */
+.inline-input {
+  border: none;
+  border-bottom: 1.5px solid var(--primary);
+  background: transparent;
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: right;
+  width: 80px;
+  outline: none;
+  color: var(--text-primary);
+  padding: 0 0 2px 0;
+}
+
+.inline-input:focus {
+  border-bottom-color: var(--primary);
+}
