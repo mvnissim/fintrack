@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { TrendingUp, LayoutDashboard, Repeat, CreditCard, BarChart2, PiggyBank, LogOut } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
 const navItems = [
@@ -16,13 +15,16 @@ const navItems = [
 
 interface SidebarProps {
   userEmail?: string
+  isOpen?: boolean
+  onClose?: () => void
 }
 
-export function Sidebar({ userEmail }: SidebarProps) {
+export function Sidebar({ userEmail, isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
 
   async function handleSignOut() {
+    const { createClient } = await import('@/lib/supabase/client')
     const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/login')
@@ -31,7 +33,13 @@ export function Sidebar({ userEmail }: SidebarProps) {
 
   return (
     <aside
-      className="fixed left-0 top-0 h-screen flex flex-col z-10"
+      className={cn(
+        'fixed left-0 top-0 h-screen flex flex-col z-30 transition-transform duration-200 ease-in-out',
+        // Mobile: esconde por padrão, mostra quando isOpen
+        isOpen ? 'translate-x-0' : '-translate-x-full',
+        // Desktop: sempre visível
+        'md:translate-x-0'
+      )}
       style={{
         width: '200px',
         background: 'var(--bg-primary)',
@@ -62,8 +70,9 @@ export function Sidebar({ userEmail }: SidebarProps) {
             <Link
               key={href}
               href={href}
+              onClick={onClose}
               className={cn(
-                'flex items-center gap-2.5 px-5 py-2.5 text-sm transition-colors',
+                'flex items-center gap-2.5 px-5 py-2.5 transition-colors',
                 isActive ? 'font-medium' : 'font-normal'
               )}
               style={{

@@ -35,7 +35,7 @@ function Card({ label, value, sub, positive, danger }: SummaryCard) {
       <p
         className="font-display font-bold"
         style={{
-          fontSize: '22px',
+          fontSize: '20px',
           letterSpacing: '-0.5px',
           color: danger
             ? 'var(--danger)'
@@ -64,28 +64,11 @@ export function SummaryCards({ totalReceitas, totalComprometido, saldoLivre, tot
     : 0
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      <Card
-        label="Total Receitas"
-        value={totalReceitas}
-        positive
-      />
-      <Card
-        label="Comprometido"
-        value={totalComprometido}
-        sub={`${percentComprometido}% da receita`}
-      />
-      <Card
-        label="Saldo Livre"
-        value={saldoLivre}
-        positive={saldoLivre >= 0}
-        danger={saldoLivre < 0}
-      />
-      <Card
-        label="Total Investido"
-        value={totalInvestido}
-        positive
-      />
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <Card label="Total Receitas" value={totalReceitas} positive />
+      <Card label="Comprometido" value={totalComprometido} sub={`${percentComprometido}% da receita`} />
+      <Card label="Saldo Livre" value={saldoLivre} positive={saldoLivre >= 0} danger={saldoLivre < 0} />
+      <Card label="Total Investido" value={totalInvestido} positive />
     </div>
   )
 }
