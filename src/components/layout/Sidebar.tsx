@@ -2,15 +2,16 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { TrendingUp, LayoutDashboard, Repeat, CreditCard, BarChart2, PiggyBank, LogOut } from 'lucide-react'
+import { TrendingUp, LayoutDashboard, Repeat, CreditCard, BarChart2, PiggyBank, LogOut, Wallet } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/despesas-fixas', label: 'Despesas Fixas', icon: Repeat },
-  { href: '/parcelas', label: 'Parcelas', icon: CreditCard },
-  { href: '/cartao', label: 'Cartão', icon: BarChart2 },
-  { href: '/investimentos', label: 'Investimentos', icon: PiggyBank },
+  { href: '/dashboard',      label: 'Dashboard',      icon: LayoutDashboard },
+  { href: '/receitas',       label: 'Receitas',        icon: Wallet },
+  { href: '/despesas-fixas', label: 'Despesas Fixas',  icon: Repeat },
+  { href: '/parcelas',       label: 'Parcelas',         icon: CreditCard },
+  { href: '/cartao',         label: 'Cartão',           icon: BarChart2 },
+  { href: '/investimentos',  label: 'Investimentos',    icon: PiggyBank },
 ]
 
 interface SidebarProps {
@@ -35,9 +36,7 @@ export function Sidebar({ userEmail, isOpen = false, onClose }: SidebarProps) {
     <aside
       className={cn(
         'fixed left-0 top-0 h-screen flex flex-col z-30 transition-transform duration-200 ease-in-out',
-        // Mobile: esconde por padrão, mostra quando isOpen
         isOpen ? 'translate-x-0' : '-translate-x-full',
-        // Desktop: sempre visível
         'md:translate-x-0'
       )}
       style={{
