@@ -4,18 +4,20 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useMonth } from '@/contexts/MonthContext'
-import { formatCurrency, formatMonthTitle } from '@/lib/utils'
+import { formatCurrency, formatMonthTitle, getMonthsInYear } from '@/lib/utils'
 import { InlineEdit } from '@/components/ui/InlineEdit'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, RefreshCw } from 'lucide-react'
 
 export default function ReceitasPage() {
   const supabase = createClient()
   const queryClient = useQueryClient()
   const { currentMonth } = useMonth()
+  const year = parseInt(currentMonth.split('-')[0])
 
   const [showAdd, setShowAdd] = useState(false)
   const [newDescricao, setNewDescricao] = useState('Salário')
   const [newValor, setNewValor] = useState('')
+  const [recorrente, setRecorrente] = useState(true)
 
   const { data: receitas = [], isLoading } = useQuery({
     queryKey: ['receitas', currentMonth],
@@ -36,19 +38,32 @@ export default function ReceitasPage() {
     mutationFn: async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
-      const { error } = await supabase.from('receitas').insert({
-        user_id: user.id,
-        mes: currentMonth,
-        descricao: newDescricao || 'Salário',
-        valor: parseFloat(newValor.replace(',', '.')),
-      })
-      if (error) throw error
+
+      const valor = parseFloat(newValor.replace(',', '.'))
+      const descricao = newDescricao || 'Salário'
+
+      if (recorrente) {
+        // Insere em todos os meses do ano
+        const meses = getMonthsInYear(year)
+        const inserts = meses.map(mes => ({ user_id: user.id, mes, descricao, valor }))
+        const { error } = await supabase.from('receitas').insert(inserts)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('receitas').insert({
+          user_id: user.id,
+          mes: currentMonth,
+          descricao,
+          valor,
+        })
+        if (error) throw error
+      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['receitas', currentMonth] })
-      queryClient.invalidateQueries({ queryKey: ['dashboard', currentMonth] })
+      queryClient.invalidateQueries({ queryKey: ['receitas'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       setNewDescricao('Salário')
       setNewValor('')
+      setRecorrente(true)
       setShowAdd(false)
     },
   })
@@ -65,13 +80,28 @@ export default function ReceitasPage() {
   })
 
   const deleteReceita = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('receitas').delete().eq('id', id)
-      if (error) throw error
+    mutationFn: async ({ id, apenasEste }: { id: string; apenasEste: boolean }) => {
+      if (apenasEste) {
+        const { error } = await supabase.from('receitas').delete().eq('id', id)
+        if (error) throw error
+      } else {
+        // Busca descrição e deleta de todos os meses do ano
+        const { data } = await supabase.from('receitas').select('descricao, user_id').eq('id', id).single()
+        if (data) {
+          const meses = getMonthsInYear(year)
+          const { error } = await supabase
+            .from('receitas')
+            .delete()
+            .eq('user_id', data.user_id)
+            .eq('descricao', data.descricao)
+            .in('mes', meses)
+          if (error) throw error
+        }
+      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['receitas', currentMonth] })
-      queryClient.invalidateQueries({ queryKey: ['dashboard', currentMonth] })
+      queryClient.invalidateQueries({ queryKey: ['receitas'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
   })
 
@@ -107,7 +137,7 @@ export default function ReceitasPage() {
         </button>
       </div>
 
-      {/* Total card */}
+      {/* Total */}
       <div
         className="rounded-lg p-4 mb-5 inline-block"
         style={{ background: 'var(--bg-primary)', border: '0.5px solid var(--border-tertiary)' }}
@@ -123,49 +153,75 @@ export default function ReceitasPage() {
       {/* Add form */}
       {showAdd && (
         <div
-          className="rounded-lg p-4 mb-4 flex flex-wrap gap-3 items-end"
+          className="rounded-lg p-4 mb-4"
           style={{ background: 'var(--bg-primary)', border: '0.5px solid var(--border-tertiary)' }}
         >
-          <div>
-            <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Descrição</label>
-            <input
-              type="text"
-              value={newDescricao}
-              onChange={e => setNewDescricao(e.target.value)}
-              placeholder="Ex: Salário"
-              className="rounded-md px-3 py-2 text-sm outline-none"
-              style={{ border: '1px solid var(--border-primary)', background: 'var(--bg-secondary)', minWidth: '180px', fontFamily: 'var(--font-dm-sans)' }}
-            />
+          <div className="flex flex-wrap gap-3 items-end">
+            <div>
+              <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Descrição</label>
+              <input
+                type="text"
+                value={newDescricao}
+                onChange={e => setNewDescricao(e.target.value)}
+                placeholder="Ex: Salário"
+                className="rounded-md px-3 py-2 text-sm outline-none"
+                style={{ border: '1px solid var(--border-primary)', background: 'var(--bg-secondary)', minWidth: '180px', fontFamily: 'var(--font-dm-sans)' }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Valor (R$)</label>
+              <input
+                type="text"
+                value={newValor}
+                onChange={e => setNewValor(e.target.value)}
+                placeholder="0,00"
+                className="rounded-md px-3 py-2 text-sm outline-none"
+                style={{ border: '1px solid var(--border-primary)', background: 'var(--bg-secondary)', width: '120px', fontFamily: 'var(--font-dm-sans)' }}
+                onKeyDown={e => e.key === 'Enter' && newValor && addReceita.mutate()}
+              />
+            </div>
+
+            {/* Toggle recorrente */}
+            <div className="flex items-center gap-2 pb-2">
+              <button
+                type="button"
+                onClick={() => setRecorrente(v => !v)}
+                className="flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition-colors"
+                style={{
+                  background: recorrente ? 'var(--primary-light)' : 'var(--bg-secondary)',
+                  color: recorrente ? 'var(--primary)' : 'var(--text-secondary)',
+                  border: `1px solid ${recorrente ? 'var(--primary)' : 'var(--border-primary)'}`,
+                }}
+              >
+                <RefreshCw size={11} />
+                Repetir todo mês ({year})
+              </button>
+            </div>
+
+            <div className="flex gap-2 pb-2">
+              <button
+                onClick={() => newValor && addReceita.mutate()}
+                disabled={!newValor || addReceita.isPending}
+                className="px-4 py-2 rounded-md text-white text-sm font-medium"
+                style={{ background: 'var(--primary)' }}
+              >
+                {addReceita.isPending ? 'Salvando...' : recorrente ? `Adicionar (12 meses)` : 'Adicionar'}
+              </button>
+              <button
+                onClick={() => { setShowAdd(false); setNewDescricao('Salário'); setNewValor(''); setRecorrente(true) }}
+                className="px-3 py-2 rounded-md text-sm"
+                style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
-          <div>
-            <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Valor (R$)</label>
-            <input
-              type="text"
-              value={newValor}
-              onChange={e => setNewValor(e.target.value)}
-              placeholder="0,00"
-              className="rounded-md px-3 py-2 text-sm outline-none"
-              style={{ border: '1px solid var(--border-primary)', background: 'var(--bg-secondary)', width: '120px', fontFamily: 'var(--font-dm-sans)' }}
-              onKeyDown={e => e.key === 'Enter' && newValor && addReceita.mutate()}
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => newValor && addReceita.mutate()}
-              disabled={!newValor || addReceita.isPending}
-              className="px-4 py-2 rounded-md text-white text-sm font-medium"
-              style={{ background: 'var(--primary)' }}
-            >
-              Adicionar
-            </button>
-            <button
-              onClick={() => { setShowAdd(false); setNewDescricao('Salário'); setNewValor('') }}
-              className="px-3 py-2 rounded-md text-sm"
-              style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
-            >
-              Cancelar
-            </button>
-          </div>
+
+          {recorrente && (
+            <p className="mt-2 text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              O valor será inserido em todos os 12 meses de {year}. Você pode editar mês a mês depois.
+            </p>
+          )}
         </div>
       )}
 
@@ -196,7 +252,7 @@ export default function ReceitasPage() {
               <tr style={{ borderBottom: '0.5px solid var(--border-tertiary)' }}>
                 <th className="text-left px-4 py-3" style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 500 }}>Descrição</th>
                 <th className="text-right px-4 py-3" style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 500 }}>Valor</th>
-                <th style={{ width: '32px' }} />
+                <th style={{ width: '40px' }} />
               </tr>
             </thead>
             <tbody>
@@ -225,18 +281,30 @@ export default function ReceitasPage() {
                       onSave={async v => { await updateReceita.mutateAsync({ id: receita.id, field: 'valor', value: v }) }}
                     />
                   </td>
-                  <td className="pr-3 py-3">
-                    <button
-                      onClick={() => deleteReceita.mutate(receita.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 flex items-center justify-center rounded"
-                      style={{ color: 'var(--text-tertiary)' }}
-                    >
-                      <X size={13} />
-                    </button>
+                  <td className="pr-2 py-3">
+                    {/* Dropdown: excluir só este ou todos os meses */}
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 justify-end">
+                      <button
+                        onClick={() => deleteReceita.mutate({ id: receita.id, apenasEste: true })}
+                        className="text-xs px-2 py-1 rounded"
+                        style={{ color: 'var(--text-tertiary)', background: 'var(--bg-secondary)' }}
+                        title="Excluir só este mês"
+                      >
+                        <X size={11} />
+                      </button>
+                      <button
+                        onClick={() => deleteReceita.mutate({ id: receita.id, apenasEste: false })}
+                        className="text-xs px-2 py-1 rounded flex items-center gap-1"
+                        style={{ color: 'var(--danger)', background: '#FCEBEB' }}
+                        title={`Excluir em todos os meses de ${year}`}
+                      >
+                        <X size={11} />
+                        <RefreshCw size={9} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
-              {/* Total */}
               <tr style={{ background: 'var(--bg-secondary)' }}>
                 <td className="px-4 py-3 font-medium" style={{ fontSize: '13px', color: 'var(--text-primary)' }}>Total</td>
                 <td className="px-4 py-3 text-right font-medium" style={{ fontSize: '13px', color: 'var(--primary)' }}>
@@ -250,7 +318,7 @@ export default function ReceitasPage() {
       )}
 
       <p className="mt-2 text-center" style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-        Clique em qualquer valor para editar. Salvo automaticamente ao sair do campo.
+        Clique no valor para editar. <span style={{ marginLeft: '4px' }}><X size={9} style={{ display: 'inline' }} /></span> exclui só este mês · <X size={9} style={{ display: 'inline' }} /><RefreshCw size={8} style={{ display: 'inline' }} /> exclui todo o ano.
       </p>
     </div>
   )
