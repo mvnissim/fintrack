@@ -9,6 +9,7 @@ import { InlineEdit } from '@/components/ui/InlineEdit'
 import { CategoryTag } from '@/components/ui/CategoryTag'
 import { parseOFX } from '@/lib/parsers/ofx'
 import { parseCSV } from '@/lib/parsers/csv'
+import { parsePDF } from '@/lib/parsers/pdf'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { Upload, Plus, X, FileText, TrendingDown, TrendingUp } from 'lucide-react'
 import type { Categoria } from '@/types'
@@ -26,6 +27,7 @@ export default function CartaoPage() {
   const [newData, setNewData] = useState('')
   const [newTipo, setNewTipo] = useState<'debito' | 'credito'>('debito')
   const [importing, setImporting] = useState(false)
+  const [pdfLoading, setPdfLoading] = useState(false)
   const [importPreview, setImportPreview] = useState<{ descricao: string; valor: number; data: string | null; tipo: string }[] | null>(null)
 
   const { data, isLoading } = useQuery({
@@ -86,8 +88,20 @@ export default function CartaoPage() {
     },
   })
 
-  // Leitura do arquivo OFX/CSV
-  function handleFile(file: File) {
+  // Leitura do arquivo OFX/CSV/PDF
+  async function handleFile(file: File) {
+    if (file.name.toLowerCase().endsWith('.pdf')) {
+      setPdfLoading(true)
+      try {
+        const parsed = await parsePDF(file)
+        setImportPreview(parsed)
+      } catch (err) {
+        alert(err instanceof Error ? err.message : 'Erro ao processar PDF')
+      } finally {
+        setPdfLoading(false)
+      }
+      return
+    }
     const reader = new FileReader()
     reader.onload = e => {
       const content = e.target?.result as string
@@ -162,11 +176,13 @@ export default function CartaoPage() {
         <div className="flex gap-2">
           <button
             onClick={() => fileRef.current?.click()}
-            className="flex items-center gap-1.5 font-medium rounded-md transition-opacity hover:opacity-90 px-3 py-2 text-xs"
+            disabled={pdfLoading}
+            className="flex items-center gap-1.5 font-medium rounded-md transition-opacity hover:opacity-90 px-3 py-2 text-xs disabled:opacity-50"
             style={{ background: 'var(--bg-primary)', border: '0.5px solid var(--border-tertiary)', color: 'var(--text-secondary)' }}
           >
-            <Upload size={13} />
-            Importar OFX/CSV
+            {pdfLoading
+              ? <><span className="w-3 h-3 rounded-full border-2 animate-spin inline-block" style={{ borderColor: 'var(--text-secondary)', borderTopColor: 'transparent' }} /> Lendo PDF...</>
+              : <><Upload size={13} /> Importar OFX/CSV/PDF</>}
           </button>
           <button
             onClick={() => setShowAdd(true)}
@@ -177,7 +193,7 @@ export default function CartaoPage() {
             Lançamento manual
           </button>
         </div>
-        <input ref={fileRef} type="file" accept=".ofx,.csv,.txt" className="hidden" onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
+        <input ref={fileRef} type="file" accept=".ofx,.csv,.txt,.pdf" className="hidden" onChange={e => { if (e.target.files?.[0]) { handleFile(e.target.files[0]); e.target.value = '' } }} />
       </div>
 
       {/* Summary cards */}
@@ -383,7 +399,7 @@ export default function CartaoPage() {
           <p style={{ color: 'var(--text-tertiary)', fontSize: '13px', marginBottom: '8px' }}>Nenhum lançamento em {formatMonthTitle(currentMonth)}</p>
           <div className="flex gap-2 justify-center">
             <button onClick={() => fileRef.current?.click()} className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
-              Importar OFX/CSV
+              Importar OFX/CSV/PDF
             </button>
             <span style={{ color: 'var(--text-tertiary)' }}>·</span>
             <button onClick={() => setShowAdd(true)} className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
